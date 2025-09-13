@@ -2,52 +2,78 @@
 #include <stdlib.h>
 #include <strings.h>
 #include "launch_data.h"
-
-int endsWith(char *string, char *suffix) {
-	if (strlen(string) < strlen(suffix)) {
-		return 2;
-	}
-
-	int retValue = 1;
-
-	int allocAmount = sizeof(char) * (strlen(suffix) + 1);
-	char *compareString = malloc(allocAmount);
-
-	size_t startIndex = strlen(string) - strlen(suffix);
-	int stringIndex = 0;
-
-	for (int i=startIndex; i<strlen(string); i++) {
-		compareString[stringIndex] = string[i];
-		stringIndex++;
-	}
-
-	if (strcmp(compareString, suffix) == 0) {
-		retValue = 0;
-	}
-
-	free(compareString);
-
-	return retValue;
-}
+#include "functions.h"
 
 int isDataFile(char *wad) {
 	if (endsWith(wad, ".wad") == 0 || (endsWith(wad, ".pk3") == 0)) {
 		return 0;
 	}
-
 	return 1;
 }
 
+int isValidIwad(char *wad) {
+	FILE *fptr;	
+
+	char *path = "iwad_list.txt";
+
+	fptr = fopen(path, "r");
+
+	if (fptr == NULL) {
+		printf("Error reading file!!");
+		return 2;
+	}
+
+	char lineBuffer[24];
+	char lineArr[20][24];
+	int charsToRead = 19;
+	int lineCount = 0;
+
+	const int MAXLINES = 20;
+
+	while (fgets(lineBuffer, charsToRead, fptr)) {
+		if (lineCount >= MAXLINES) {
+			break;
+		}
+
+		strcpy(lineArr[lineCount], lineBuffer);
+		lineCount++;
+	}
+
+	for (int i=0; i<lineCount; i++) {
+		//check for a valid wad, in case of faliure remove
+		//the file extension and try again...
+		char *validWad = lineArr[i];
+
+		//Remove the trailing \n, allowing for strcmp
+		removeNewLine(validWad);
+
+		if (strcmp(wad, validWad) == 0) {
+			return 0;
+		}
+
+		removeExtension(validWad);
+
+		if (strcmp(wad, validWad) == 0) {
+			return 1;
+		}
+	}
+	return 2;
+}
 
 void handleIwad(char *wad, LaunchData *p) {
-	if (isDataFile(wad) != 0) {
-		printf("This is not a valid data file!");
-		return;
+	int retStatus = isValidIwad(wad);
 
-	
+	if (retStatus > 1) {
+		printf("ERROR reading iwad_list data!!");
+		return;
+	}
+	else if (retStatus == 1) {
+		p->iwadPath = addExtension(".wad", wad);
+		return;
+	}
+
 	p->iwadPath = (char*) malloc(sizeof(char) * (strlen(wad) + 1));
 	strcpy(p->iwadPath, wad);
-	}
 }
 
 LaunchData* parseCommandLine(int argc, char **argv) {
@@ -66,6 +92,7 @@ LaunchData* parseCommandLine(int argc, char **argv) {
 
 	for (int i=1; i<argc; i++) {
 		if (skipCount > 0) {
+			skipCount--;
 			continue;
 		}
 
@@ -78,24 +105,24 @@ LaunchData* parseCommandLine(int argc, char **argv) {
 			continue;
 		}
 
-		if (endsWith(argv[i], ".wad") == 0 && *pWadCount < *pMaxWadCount) {
+		if (isDataFile(arg) == 0 && bufferIndex < *pMaxWadCount) {
 			strcpy(wadBuffer[bufferIndex], arg);
 			bufferIndex++;	
 		}
 	}
 
+	//Do PWAD STUFF
 	//fill launch data wad arr
-	if (bufferIndex > 0) {
-		allocateWadArray(bufferIndex, launchData);
-		//add a max wad file len for the struct
+	if (bufferIndex == 0) {
+		return launchData;
 	}
 
+
+	allocateWadArray(bufferIndex, launchData);
 
 	for (int i=0; i<bufferIndex; i++) {
 		addPWAD(wadBuffer[i], launchData);
 	}
-	
-	// Try to make malloc work
 
 
 	return launchData;
@@ -103,11 +130,11 @@ LaunchData* parseCommandLine(int argc, char **argv) {
 
 int main(int argc, char *argv[]) {
 	LaunchData *launchData = parseCommandLine(argc, argv);
-/*
 	for (int i=0; i<launchData->wadCount; i++) {
-		printf("yes");
+		//printf("%s\n", launchData->wadPathArr[i]);
 	}
 
-	*/
+	printf("Iwad: %s\n", launchData->iwadPath);
+
 	return 0;
 }
