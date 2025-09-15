@@ -1,80 +1,83 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <dirent.h>
 #include "launch_data.h"
 #include "functions.h"
+#include "doom_functions.h"
 
-int isDataFile(char *wad) {
-	if (endsWith(wad, ".wad") == 0 || (endsWith(wad, ".pk3") == 0)) {
-		return 0;
-	}
-	return 1;
-}
+int searchForExtension(char *wad, char *fileName) {
+	//fix weird seg fault when not adding file extension 
 
-int isValidIwad(char *wad) {
-	FILE *fptr;	
+	FILE *fptr;
 
-	char *path = "iwad_list.txt";
-
+	char *path = "autocomplete_extensions.txt";
+	
 	fptr = fopen(path, "r");
 
 	if (fptr == NULL) {
-		printf("Error reading file!!");
-		return 2;
+		printf("ERROR reading autocomplete_extensions file!!");
 	}
 
-	char lineBuffer[24];
-	char lineArr[20][24];
-	int charsToRead = 19;
-	int lineCount = 0;
+	char lineBuffer[10];
+	int charsToRead = 9;
+	int maxExtensionLen = 10;
+	lineBuffer[9] = '\0';
 
-	const int MAXLINES = 20;
+	int maxCompareLen = strlen(fileName) + maxExtensionLen + 1;
+	int allocBytes = sizeof(char) * maxCompareLen;
+	char *compareBuffer = (char*) malloc(allocBytes);
+
 
 	while (fgets(lineBuffer, charsToRead, fptr)) {
-		if (lineCount >= MAXLINES) {
-			break;
-		}
+		strcpy(compareBuffer, fileName);
+		strcat(compareBuffer, lineBuffer);
 
-		strcpy(lineArr[lineCount], lineBuffer);
-		lineCount++;
-	}
+		removeExtension(compareBuffer);
 
-	for (int i=0; i<lineCount; i++) {
-		//check for a valid wad, in case of faliure remove
-		//the file extension and try again...
-		char *validWad = lineArr[i];
-
-		//Remove the trailing \n, allowing for strcmp
-		removeNewLine(validWad);
-
-		if (strcmp(wad, validWad) == 0) {
+		if (strcmp(wad, compareBuffer) == 0) {
 			return 0;
 		}
+	}
 
-		removeExtension(validWad);
+	free(compareBuffer);
+	return 1;
+}
 
-		if (strcmp(wad, validWad) == 0) {
-			return 1;
+void handleFrogottenExtensions(char* wad, LaunchData *data) {
+	DIR *d;
+
+	struct dirent *dir;
+
+	d = opendir(".");
+
+	if (dir == NULL) {
+		printf("ERROR could not list file directory");
+		return;
+	}
+
+	while ((dir = readdir(d)) != NULL) {
+		char *fileName = dir->d_name;
+	
+		if (searchForExtension(wad, fileName) == 1) {
+			continue;
 		}
+
+
+		if (isValidIwad(fileName) == 0) {
+			data->iwadPath = addIWAD(fileName);
+		}
+		else if (isDataFile(fileName) == 0) {
+			addPWAD(fileName, data);	
+		}
+
+		break;
 	}
-	return 2;
+
+	closedir(d);
 }
 
-void handleIwad(char *wad, LaunchData *p) {
-	int retStatus = isValidIwad(wad);
 
-	if (retStatus > 1) {
-		printf("ERROR reading iwad_list data!!");
-		return;
-	}
-	else if (retStatus == 1) {
-		p->iwadPath = addExtension(".wad", wad);
-		return;
-	}
-
-	p->iwadPath = (char*) malloc(sizeof(char) * (strlen(wad) + 1));
-	strcpy(p->iwadPath, wad);
-}
 
 LaunchData* parseCommandLine(int argc, char **argv) {
 	LaunchData *launchData = newLaunchData();
@@ -99,9 +102,26 @@ LaunchData* parseCommandLine(int argc, char **argv) {
 		char *arg = argv[i];
 		char *nextArg = argv[i+1];
 
+		if (i == argc - 1) {
+			nextArg = NULL;
+		}
+
 		if (strcmp(arg, "-iwad") == 0) {
-			handleIwad(nextArg, launchData);
+			launchData->iwadPath = addIWAD(nextArg);
 			skipCount++;
+			continue;
+		}
+
+		if (strcmp(arg, "-cwad") == 0) {
+			launchData->cwadPath = addIWAD(nextArg);	
+			skipCount++;
+			continue;
+		}
+
+		//handle parameterless args
+		if (isValidIwad(arg) == 0) {
+			addIWAD(arg);
+			launchData->iwadPath = allocateWadData(arg);
 			continue;
 		}
 
@@ -109,6 +129,8 @@ LaunchData* parseCommandLine(int argc, char **argv) {
 			strcpy(wadBuffer[bufferIndex], arg);
 			bufferIndex++;	
 		}
+
+		handleFrogottenExtensions(arg, launchData);
 	}
 
 	//Do PWAD STUFF
@@ -131,10 +153,12 @@ LaunchData* parseCommandLine(int argc, char **argv) {
 int main(int argc, char *argv[]) {
 	LaunchData *launchData = parseCommandLine(argc, argv);
 	for (int i=0; i<launchData->wadCount; i++) {
-		//printf("%s\n", launchData->wadPathArr[i]);
+		printf("PWAD: %s\n", launchData->wadPathArr[i]);
 	}
 
 	printf("Iwad: %s\n", launchData->iwadPath);
+	printf("CWAD: %s\n", launchData->cwadPath);
+
 
 	return 0;
 }

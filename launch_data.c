@@ -18,7 +18,6 @@ LaunchData* newLaunchData() {
 void allocateWadArray(int count, LaunchData *p) {
 	size_t allocAmount = sizeof(char*) * count;
 	p->wadPathArr = (char**) malloc(allocAmount);
-	//p->stringValues = (char**) malloc(sizeof(char) * maxKeyLength * count);
 }
 
 

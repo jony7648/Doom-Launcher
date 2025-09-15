@@ -1,0 +1,6 @@
+doom.wad
+doom1.wad
+doom2.wad
+tnt.wad
+plutonia.wad
+chex.wad

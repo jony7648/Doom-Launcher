@@ -1,0 +1,5 @@
+.wad
+.pk3
+.pk7
+.lmp
+.deh

@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
 #include "functions.h"
@@ -14,11 +15,15 @@ int endsWith(char *string, char *suffix) {
 
 	size_t startIndex = strlen(string) - strlen(suffix);
 	int stringIndex = 0;
+	
 
 	for (int i=startIndex; i<strlen(string); i++) {
 		compareString[stringIndex] = string[i];
 		stringIndex++;
 	}
+
+
+	//printf("Compare: %s\nSUFFIX: %s\n", compareString, suffix);
 
 	if (strcmp(compareString, suffix) == 0) {
 		retValue = 0;
@@ -41,8 +46,14 @@ int reduceStrLen(int amount, char *string) {
 	return 1;
 }
 
-int removeExtension(char *string) {
-	reduceStrLen(4, string);
+void removeExtension(char *string) {
+	size_t startIndex = strlen(string) - 1;
+
+	for (int i=startIndex; i>0; i--) {
+		if (string[i] == '.') {
+			string[i] = '\0';	
+		}
+	}
 }
 
 char* addExtension(char *extension, char *oldString) {
