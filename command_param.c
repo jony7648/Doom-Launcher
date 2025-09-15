@@ -36,6 +36,7 @@ int searchForExtension(char *wad, char *fileName) {
 		removeExtension(compareBuffer);
 
 		if (strcmp(wad, compareBuffer) == 0) {
+			free(compareBuffer);
 			return 0;
 		}
 	}
